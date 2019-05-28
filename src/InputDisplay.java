@@ -15,6 +15,7 @@ public class InputDisplay {
         GlobalKeyboardHook gkh = new GlobalKeyboardHook(true);
         gkh.addKeyListener(new GlobalKeyAdapter(){
             public void keyPressed(GlobalKeyEvent e){
+                idf.apmCount++;
                 idf.keyStateChange(e.getVirtualKeyCode(), true);
             }
 
@@ -28,6 +29,7 @@ public class InputDisplay {
         gmh.addMouseListener(new GlobalMouseAdapter(){
             public void mousePressed(GlobalMouseEvent e){
                 //1 = Left; 2 = Right; 16 = Middle
+                idf.apmCount++;
                 idf.mouseStateChange(e.getButton(),true);
                 //System.out.println("Mouse Pressed: "+e.getButton());
             }
@@ -44,6 +46,7 @@ public class InputDisplay {
 
             public void mouseWheel(GlobalMouseEvent e){
                 //Positive = wheel up; Negative = wheel down
+                idf.apmCount++;
                 idf.mouseWheelUse(e.getDelta());
             }
         });

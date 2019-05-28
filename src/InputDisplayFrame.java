@@ -21,6 +21,25 @@ class InputDisplayFrame extends JFrame {
     private BufferedImage imgBuffer;
     private Graphics2D imgBufferG;
     
+    //APM SETTINGS
+    private static final boolean apmDraw = true; //Whether to draw the APM text
+    
+    private static final int apmFontSize = 32; //Font size of APM text
+    private static final int apmFreq = 500; //Millis between APM updates
+    private static final int apmSamples = 4; //Number of calculations to incorporate
+        //apmFreq*apmSamples gives the period of time for which APM is being calculated
+    private static final int apmHigh = 300; //APM to switch over to the High Color
+    private static final int apmBackPad = 3; //Pixels of padding for the background
+    private static final Color apmBackColor = new Color(0,0,0,255);
+    private static final Color apmColor = new Color(255,255,255,255);
+    private static final Color apmHighColor = new Color(255,0,0,255);
+    
+    private long apmLastUpdate = 0; //Last APM calculation time
+    private double apmCurrent = 0; //The last APM calculation
+    public volatile int apmCount = 0; //Number of actions since last calculation
+    private double[] apmSampleArr = new double[apmSamples]; //Stores the results of each sample
+    private int apmSamplePos = 0; //Position in the sample array
+    
     //KEYBOARD SECTION
     private static final int keyWidth = 40; //Width of individual keys
     private static final int keyHeight = 40; //Height of individual keys
@@ -106,6 +125,16 @@ class InputDisplayFrame extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setVisible(true);
         
+        //Think thread
+        new Thread(){
+            public void run(){
+                while(true){
+                    think();
+                    try{sleep(10);}catch(Exception e){}
+                }
+            }
+        }.start();
+        
         //Repaint thread
         new Thread(){
             public void run(){
@@ -115,6 +144,28 @@ class InputDisplayFrame extends JFrame {
                 }
             }
         }.start();
+    }
+    
+    //Perform real time calculations
+    private void think(){
+        if(apmDraw){//APM Calculation
+            long ct = System.currentTimeMillis();
+            long elapsed = ct-apmLastUpdate;
+            if(elapsed>apmFreq){
+                double apm = (double)apmCount*60000.0/elapsed; //Calculate APM for this sample
+                apmCount = 0;
+
+                apmCurrent-=apmSampleArr[apmSamplePos];
+                apmSampleArr[apmSamplePos] = (double)apm/apmSamples;
+                apmCurrent+=apmSampleArr[apmSamplePos];
+
+                apmSamplePos++;
+                if(apmSamplePos>=apmSampleArr.length)
+                    apmSamplePos = 0;
+
+                apmLastUpdate = ct;
+            }
+        }
     }
     
     private void calcSizes(){
@@ -310,7 +361,7 @@ class InputDisplayFrame extends JFrame {
     //
     
     //Do necessray things on a frame-by-frame basis
-    private void think(){
+    private void frameThink(){
         //Calculate mouse Velocity
         mouseTicksTillUpdate--;
         if(mouseTicksTillUpdate <= 0){
@@ -326,8 +377,8 @@ class InputDisplayFrame extends JFrame {
     
     //Draw a Frame
     public void paint(Graphics g){
-        //Do think
-        think();
+        //Do frameThink
+        frameThink();
         
         if(imgBuffer.getWidth() != getWidth() || imgBuffer.getHeight() != getHeight()){
             imgBuffer = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_4BYTE_ABGR);
@@ -387,6 +438,22 @@ class InputDisplayFrame extends JFrame {
         
         double ballmul = mul*7/paintFreq; //Account for paint rate
         ballmul = ballmul*mouseWidth/262d; //Account for window size
+        
+        if(apmDraw){ //APM Draw Section
+            g.setFont(new Font("TimesRoman", Font.BOLD, apmFontSize));
+            String apmTxt = (int)apmCurrent+" APM";
+            int w = g.getFontMetrics().stringWidth(apmTxt);
+            int h = g.getFontMetrics().getHeight();
+            
+            int x = (mouseX+(mouseWidth-w)/2)-apmBackPad;
+            int y = mouseY+mouseHeight-apmBackPad;
+            
+            g.setColor(apmBackColor);
+            g.fillRect(x-apmBackPad, y-h/2-apmBackPad, w+apmBackPad*2, h/2+apmBackPad*2);
+            g.setColor(apmCurrent>apmHigh?apmHighColor:apmColor);
+            g.drawString(apmTxt,x,y);
+        }
+        
         
         //Draw Grid
         if(mouseDrawGrid){
